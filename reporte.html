@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reporte Completo - Visión y Marketing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="https://www.visionymarketing.com.co/favicon.ico" type="image/x-icon">
+  <style>
+    body { background-color: #fff9f9; }
+    .brand-red { background-color: #c1121f; }
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #c1121f;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+
+<body class="text-gray-800 font-sans flex flex-col min-h-screen">
+  
+  <!-- HEADER -->
+  <div id="header"></div>
+
+  <!-- CONTENIDO -->
+  <main class="flex-grow max-w-7xl mx-auto px-6 py-10">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6">Reporte Completo de Documentos</h2>
+      
+      <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <p class="text-gray-600">Total de archivos: <span id="totalArchivos" class="font-semibold">0</span></p>
+          <p class="text-gray-600">Total de clientes: <span id="totalClientes" class="font-semibold">0</span></p>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="buscarInput" placeholder="Buscar en documentos..." 
+                 class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+          <button id="btnExportar" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition">
+            Exportar CSV
+          </button>
+        </div>
+      </div>
+
+      <div id="loader" class="loader"></div>
+      
+      <div class="overflow-x-auto">
+        <table id="tablaReporte" class="min-w-full bg-white border border-gray-200 hidden">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" data-sort="cliente">
+                Cliente ↂ
+              </th>
+              <th class="px-6 py-3 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" data-sort="ruta">
+                Ruta Completa ↂ
+              </th>
+              <th class="px-6 py-3 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" data-sort="nombre">
+                Nombre Archivo ↂ
+              </th>
+              <th class="px-6 py-3 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" data-sort="extension">
+                Extensión ↂ
+              </th>
+              <th class="px-6 py-3 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                URL
+              </th>
+              <th class="px-6 py-3 border-b border-gray-200 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer" data-sort="tipo">
+                Tipo ↂ
+              </th>
+            </tr>
+          </thead>
+          <tbody id="tbodyReporte" class="divide-y divide-gray-200">
+          </tbody>
+        </table>
+      </div>
+
+      <div id="sinResultados" class="text-center py-8 hidden">
+        <p class="text-gray-500 text-lg">No se encontraron resultados</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <div id="footer"></div>
+
+  <!-- SCRIPTS -->
+  <script src="js/config.js"></script>
+  <script src="js/header.js"></script>
+  <script src="js/footer.js"></script>
+  <script src="js/reporte.js"></script>
+
+</body>
+</html>
