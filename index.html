@@ -51,20 +51,21 @@
         const filas = csvText.trim().split('\n').slice(1); // omitir encabezado
         const container = document.getElementById('clientes-container');
 
-        filas.forEach(fila => {
-          const [nombre, logo] = fila.split(';').map(x => x.trim());
-          const carpeta = encodeURIComponent(nombre.replaceAll(' ', '%20'));
+      filas.forEach(fila => {
+        const [nombre, logo] = fila.split(';').map(x => x.trim());
+        const carpeta = encodeURIComponent(nombre.trim()); // ✅ solo una codificación
 
-          const card = document.createElement('a');
-          card.href = `./DocumentosClientes/${carpeta}/`;
-          card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
-          card.innerHTML = `
-            <img src="${logo}" alt="${nombre}" class="h-16 object-contain mb-4">
-            <h3 class="text-lg font-semibold text-gray-800">${nombre}</h3>
-            <p class="text-sm text-gray-500 mt-1">Ver documentos</p>
-          `;
-          container.appendChild(card);
-        });
+        const card = document.createElement('a');
+        card.href = `./DocumentosClientes/${carpeta}/`;
+        card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
+        card.innerHTML = `
+          <img src="${logo}" alt="${nombre}" class="h-16 object-contain mb-4">
+          <h3 class="text-lg font-semibold text-gray-800">${nombre}</h3>
+          <p class="text-sm text-gray-500 mt-1">Ver documentos</p>
+        `;
+        container.appendChild(card);
+      });
+
       } catch (error) {
         console.error("Error cargando CSV:", error);
       }
