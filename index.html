@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Visión y Marketing - Documentos de Clientes</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="icon" href="https://www.visionymarketing.com.co/favicon.ico" type="image/x-icon">
@@ -20,7 +20,8 @@
   <header class="brand-red text-white shadow-md">
     <div class="max-w-6xl mx-auto px-6 py-6 flex flex-col sm:flex-row justify-between items-center">
       <div class="flex items-center space-x-4">
-        <img src="https://www.visionymarketing.com.co/assets/images/v3/logo-vision-marketing-ohla-blanco.png" alt="Logo Visión y Marketing" class="h-10">
+        <img src="https://www.visionymarketing.com.co/assets/images/v3/logo-vision-marketing-ohla-blanco.png"
+             alt="Logo Visión y Marketing" class="h-10">
         <h1 class="text-2xl font-bold tracking-wide">Portal de Documentos de Clientes</h1>
       </div>
     </div>
@@ -28,53 +29,109 @@
 
   <!-- CONTENIDO -->
   <main class="flex-grow max-w-6xl mx-auto px-6 py-10">
-    <h2 class="text-xl font-semibold mb-6 border-b-2 border-red-600 pb-2">Clientes</h2>
-
-    <div id="clientes-container" class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      <!-- Se insertarán las tarjetas desde el CSV -->
-    </div>
+    <h2 id="titulo" class="text-xl font-semibold mb-6 border-b-2 border-red-600 pb-2">Clientes</h2>
+    <div id="contenedor" class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
   </main>
 
   <!-- FOOTER -->
   <footer class="brand-red text-white text-center py-5 mt-auto">
     <p class="text-sm">© 2025 Visión y Marketing · Todos los derechos reservados</p>
-    <p class="text-xs opacity-90 mt-1">Para contacto o soporte: 
+    <p class="text-xs opacity-90 mt-1">
+      Para contacto o soporte:
       <a href="mailto:jhon.piza@visionymarketing.com.co" class="underline">jhon.piza@visionymarketing.com.co</a>
     </p>
   </footer>
 
   <!-- SCRIPT -->
   <script>
-    async function cargarClientes() {
+    const usuario = "JhonPizaVision";
+    const repositorio = "VisionyMarketing";
+    const baseURL = `https://api.github.com/repos/${usuario}/${repositorio}/git/trees/main?recursive=1`;
+
+    // Detecta si estamos en un cliente específico, ej: ?cliente=NestlePurina
+    const params = new URLSearchParams(window.location.search);
+    const clienteSeleccionado = params.get("cliente");
+
+    async function cargarContenido() {
+      const contenedor = document.getElementById("contenedor");
+      const titulo = document.getElementById("titulo");
+
       try {
-        const response = await fetch('clientes.csv');
-        const csvText = await response.text();
+        const resp = await fetch(baseURL);
+        const data = await resp.json();
 
-        const filas = csvText.trim().split('\n').slice(1); // omitir encabezado
-        const container = document.getElementById('clientes-container');
+        if (!data.tree) {
+          contenedor.innerHTML = "<p class='text-center text-red-600'>No se encontró contenido en el repositorio.</p>";
+          return;
+        }
 
-        filas.forEach(fila => {
-          const [nombre, logo] = fila.split(';').map(x => x.trim());
+        if (!clienteSeleccionado) {
+          // MODO CLIENTES: mostrar todas las carpetas bajo DocumentosClientes/
+          const carpetas = new Set();
+          data.tree.forEach(item => {
+            if (item.path.startsWith("DocumentosClientes/")) {
+              const partes = item.path.split("/");
+              if (partes.length > 1) carpetas.add(partes[1]);
+            }
+          });
 
-          // ✅ sin espacios, se usa el nombre directamente como carpeta
-          const carpeta = nombre; 
+          titulo.textContent = "Clientes";
+          carpetas.forEach(nombre => {
+            const card = document.createElement("a");
+            card.href = `?cliente=${encodeURIComponent(nombre)}`;
+            card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
+            card.innerHTML = `
+              <div class="h-16 w-16 flex items-center justify-center bg-gray-100 rounded-full mb-4">
+                <span class="text-2xl font-bold text-gray-700">${nombre[0]}</span>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-800">${nombre}</h3>
+              <p class="text-sm text-gray-500 mt-1">Ver documentos</p>
+            `;
+            contenedor.appendChild(card);
+          });
+        } else {
+          // MODO DOCUMENTOS: mostrar PDFs del cliente seleccionado
+          titulo.textContent = `Documentos de ${clienteSeleccionado}`;
+          const archivos = data.tree.filter(item =>
+            item.path.startsWith(`DocumentosClientes/${clienteSeleccionado}/`) &&
+            item.path.endsWith(".pdf")
+          );
 
-          const card = document.createElement('a');
-          card.href = `./DocumentosClientes/${carpeta}/`;
-          card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
-          card.innerHTML = `
-            <img src="${logo}" alt="${nombre}" class="h-16 object-contain mb-4">
-            <h3 class="text-lg font-semibold text-gray-800">${nombre}</h3>
-            <p class="text-sm text-gray-500 mt-1">Ver documentos</p>
-          `;
-          container.appendChild(card);
-        });
+          if (archivos.length === 0) {
+            contenedor.innerHTML = "<p class='col-span-full text-center text-gray-600'>No hay documentos disponibles.</p>";
+          } else {
+            archivos.forEach(doc => {
+              const nombreArchivo = doc.path.split("/").pop();
+              const urlPublica = `https://jhonpizavision.github.io/${repositorio}/${encodeURIComponent(doc.path).replace(/%2F/g, "/")}`;
+              
+              const card = document.createElement("a");
+              card.href = urlPublica;
+              card.target = "_blank";
+              card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col text-center brand-hover";
+              card.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-3 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <p class="text-sm font-medium text-gray-700 truncate">${nombreArchivo}</p>
+              `;
+              contenedor.appendChild(card);
+            });
+          }
+
+          // Botón volver
+          const volver = document.createElement("a");
+          volver.href = "./";
+          volver.className = "block mt-8 text-center text-red-600 font-semibold underline";
+          volver.textContent = "← Volver a clientes";
+          contenedor.after(volver);
+        }
       } catch (error) {
-        console.error("Error cargando CSV:", error);
+        console.error("Error cargando contenido:", error);
+        contenedor.innerHTML = "<p class='text-center text-red-600'>Error al cargar los datos desde GitHub.</p>";
       }
     }
 
-    cargarClientes();
+    cargarContenido();
   </script>
 
 </body>
