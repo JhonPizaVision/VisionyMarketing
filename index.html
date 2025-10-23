@@ -10,6 +10,19 @@
     body { background-color: #fff9f9; }
     .brand-red { background-color: #c1121f; }
     .brand-hover:hover { transform: translateY(-3px); transition: 0.2s; }
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #c1121f;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 
@@ -29,7 +42,8 @@
   <!-- CONTENIDO -->
   <main class="flex-grow max-w-6xl mx-auto px-6 py-10">
     <h2 id="titulo" class="text-xl font-semibold mb-6 border-b-2 border-red-600 pb-2">Explorador</h2>
-    <div id="contenedor" class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+    <div id="loader" class="loader"></div>
+    <div id="contenedor" class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 hidden"></div>
   </main>
 
   <!-- FOOTER -->
@@ -54,8 +68,13 @@
     async function cargarContenido() {
       const contenedor = document.getElementById("contenedor");
       const titulo = document.getElementById("titulo");
+      const loader = document.getElementById("loader");
 
       try {
+        // Mostrar loader y ocultar contenedor
+        loader.classList.remove("hidden");
+        contenedor.classList.add("hidden");
+
         const resp = await fetch(baseURL);
         const data = await resp.json();
         if (!data.tree) throw new Error("No se encontró contenido");
@@ -65,17 +84,29 @@
 
         // Extraer solo el siguiente nivel (carpetas o archivos directamente dentro)
         const items = new Map();
+        
         nivelActual.forEach(item => {
           const relativo = item.path.replace(rutaActual + "/", "");
           const partes = relativo.split("/");
+          
+          // Si solo hay una parte y no está vacío, es un archivo directo
           if (partes.length === 1 && relativo !== "") {
-            // Archivo directo
-            items.set(item.path, { tipo: "archivo", nombre: partes[0], path: item.path });
-          } else if (partes.length > 1) {
-            // Carpeta
+            items.set(item.path, { 
+              tipo: "archivo", 
+              nombre: partes[0], 
+              path: item.path 
+            });
+          } 
+          // Si hay más de una parte, es una carpeta o archivo dentro de subcarpeta
+          else if (partes.length > 1) {
             const carpeta = partes[0];
+            // Solo agregar la carpeta si no existe ya
             if (!items.has(carpeta)) {
-              items.set(carpeta, { tipo: "carpeta", nombre: carpeta, path: `${rutaActual}/${carpeta}` });
+              items.set(carpeta, { 
+                tipo: "carpeta", 
+                nombre: carpeta, 
+                path: `${rutaActual}/${carpeta}` 
+              });
             }
           }
         });
@@ -100,7 +131,7 @@
             if (item.tipo === "carpeta") {
               const card = document.createElement("a");
               card.href = `?ruta=${encodeURIComponent(item.path)}`;
-              card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
+              card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover cursor-pointer";
               card.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 7l3-3h15a2 2 0 012 2v12a2 2 0 01-2 2H3V7z" />
@@ -141,7 +172,7 @@
               const card = document.createElement("a");
               card.href = urlPublica;
               card.target = "_blank";
-              card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col text-center brand-hover";
+              card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col text-center brand-hover cursor-pointer";
               card.innerHTML = `
                 ${icono}
                 <p class="text-sm font-medium text-gray-700 truncate">${item.nombre}</p>
@@ -159,7 +190,7 @@
           const rutaPadre = partes.join("/");
           const volver = document.createElement("a");
           volver.href = `?ruta=${encodeURIComponent(rutaPadre || "DocumentosClientes")}`;
-          volver.className = "block mt-8 text-center text-red-600 font-semibold underline";
+          volver.className = "block mt-8 text-center text-red-600 font-semibold underline cursor-pointer";
           volver.textContent = "← Volver";
           contenedor.after(volver);
         }
@@ -167,6 +198,10 @@
       } catch (err) {
         console.error(err);
         contenedor.innerHTML = "<p class='text-center text-red-600'>Error al cargar contenido desde GitHub.</p>";
+      } finally {
+        // Ocultar loader y mostrar contenedor
+        loader.classList.add("hidden");
+        contenedor.classList.remove("hidden");
       }
     }
 
