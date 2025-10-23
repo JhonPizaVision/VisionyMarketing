@@ -9,7 +9,7 @@
 
   <style>
     body { background-color: #fff9f9; }
-    .brand-red { background-color: #c1121f; } /* Color corporativo rojo */
+    .brand-red { background-color: #c1121f; }
     .brand-hover:hover { transform: translateY(-3px); transition: 0.2s; }
   </style>
 </head>
@@ -38,7 +38,9 @@
   <!-- FOOTER -->
   <footer class="brand-red text-white text-center py-5 mt-auto">
     <p class="text-sm">© 2025 Visión y Marketing · Todos los derechos reservados</p>
-    <p class="text-xs opacity-90 mt-1">Para contacto o soporte: <a href="mailto:jhon.piza@visionymarketing.com.co" class="underline">jhon.piza@visionymarketing.com.co</a></p>
+    <p class="text-xs opacity-90 mt-1">Para contacto o soporte: 
+      <a href="mailto:jhon.piza@visionymarketing.com.co" class="underline">jhon.piza@visionymarketing.com.co</a>
+    </p>
   </footer>
 
   <!-- SCRIPT -->
@@ -51,21 +53,22 @@
         const filas = csvText.trim().split('\n').slice(1); // omitir encabezado
         const container = document.getElementById('clientes-container');
 
-      filas.forEach(fila => {
-        const [nombre, logo] = fila.split(';').map(x => x.trim());
-        const carpeta = encodeURIComponent(nombre.trim()); // ✅ solo una codificación
+        filas.forEach(fila => {
+          const [nombre, logo] = fila.split(';').map(x => x.trim());
 
-        const card = document.createElement('a');
-        card.href = `./DocumentosClientes/${carpeta}/`;
-        card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
-        card.innerHTML = `
-          <img src="${logo}" alt="${nombre}" class="h-16 object-contain mb-4">
-          <h3 class="text-lg font-semibold text-gray-800">${nombre}</h3>
-          <p class="text-sm text-gray-500 mt-1">Ver documentos</p>
-        `;
-        container.appendChild(card);
-      });
+          // ✅ sin espacios, se usa el nombre directamente como carpeta
+          const carpeta = nombre; 
 
+          const card = document.createElement('a');
+          card.href = `./DocumentosClientes/${carpeta}/`;
+          card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
+          card.innerHTML = `
+            <img src="${logo}" alt="${nombre}" class="h-16 object-contain mb-4">
+            <h3 class="text-lg font-semibold text-gray-800">${nombre}</h3>
+            <p class="text-sm text-gray-500 mt-1">Ver documentos</p>
+          `;
+          container.appendChild(card);
+        });
       } catch (error) {
         console.error("Error cargando CSV:", error);
       }
