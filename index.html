@@ -6,7 +6,6 @@
   <title>Visión y Marketing - Documentos de Clientes</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="icon" href="https://www.visionymarketing.com.co/favicon.ico" type="image/x-icon">
-
   <style>
     body { background-color: #fff9f9; }
     .brand-red { background-color: #c1121f; }
@@ -29,7 +28,7 @@
 
   <!-- CONTENIDO -->
   <main class="flex-grow max-w-6xl mx-auto px-6 py-10">
-    <h2 id="titulo" class="text-xl font-semibold mb-6 border-b-2 border-red-600 pb-2">Clientes</h2>
+    <h2 id="titulo" class="text-xl font-semibold mb-6 border-b-2 border-red-600 pb-2">Explorador</h2>
     <div id="contenedor" class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
   </main>
 
@@ -48,9 +47,9 @@
     const repositorio = "VisionyMarketing";
     const baseURL = `https://api.github.com/repos/${usuario}/${repositorio}/git/trees/main?recursive=1`;
 
-    // Detecta si estamos en un cliente específico, ej: ?cliente=NestlePurina
+    // Obtener ruta actual desde URL (por ejemplo: ?ruta=DocumentosClientes/NestlePurina/InformeGestion)
     const params = new URLSearchParams(window.location.search);
-    const clienteSeleccionado = params.get("cliente");
+    const rutaActual = params.get("ruta") || "DocumentosClientes";
 
     async function cargarContenido() {
       const contenedor = document.getElementById("contenedor");
@@ -59,75 +58,90 @@
       try {
         const resp = await fetch(baseURL);
         const data = await resp.json();
+        if (!data.tree) throw new Error("No se encontró contenido");
 
-        if (!data.tree) {
-          contenedor.innerHTML = "<p class='text-center text-red-600'>No se encontró contenido en el repositorio.</p>";
-          return;
-        }
+        // Filtrar elementos dentro de la ruta actual
+        const nivelActual = data.tree.filter(item => item.path.startsWith(rutaActual + "/"));
 
-        if (!clienteSeleccionado) {
-          // MODO CLIENTES: mostrar todas las carpetas bajo DocumentosClientes/
-          const carpetas = new Set();
-          data.tree.forEach(item => {
-            if (item.path.startsWith("DocumentosClientes/")) {
-              const partes = item.path.split("/");
-              if (partes.length > 1) carpetas.add(partes[1]);
+        // Extraer solo el siguiente nivel (carpetas o archivos directamente dentro)
+        const items = new Map();
+        nivelActual.forEach(item => {
+          const relativo = item.path.replace(rutaActual + "/", "");
+          const partes = relativo.split("/");
+          if (partes.length === 1 && relativo !== "") {
+            // Archivo directo
+            items.set(item.path, { tipo: "archivo", nombre: partes[0], path: item.path });
+          } else if (partes.length > 1) {
+            // Carpeta
+            const carpeta = partes[0];
+            if (!items.has(carpeta)) {
+              items.set(carpeta, { tipo: "carpeta", nombre: carpeta, path: `${rutaActual}/${carpeta}` });
             }
-          });
+          }
+        });
 
-          titulo.textContent = "Clientes";
-          carpetas.forEach(nombre => {
-            const card = document.createElement("a");
-            card.href = `?cliente=${encodeURIComponent(nombre)}`;
-            card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
-            card.innerHTML = `
-              <div class="h-16 w-16 flex items-center justify-center bg-gray-100 rounded-full mb-4">
-                <span class="text-2xl font-bold text-gray-700">${nombre[0]}</span>
-              </div>
-              <h3 class="text-lg font-semibold text-gray-800">${nombre}</h3>
-              <p class="text-sm text-gray-500 mt-1">Ver documentos</p>
-            `;
-            contenedor.appendChild(card);
-          });
+        // Mostrar título
+        titulo.textContent = rutaActual === "DocumentosClientes"
+          ? "Clientes"
+          : `Contenido de ${rutaActual.split("/").slice(1).join(" / ")}`;
+
+        contenedor.innerHTML = "";
+
+        if (items.size === 0) {
+          contenedor.innerHTML = "<p class='col-span-full text-center text-gray-600'>No hay contenido disponible.</p>";
         } else {
-          // MODO DOCUMENTOS: mostrar PDFs del cliente seleccionado
-          titulo.textContent = `Documentos de ${clienteSeleccionado}`;
-          const archivos = data.tree.filter(item =>
-            item.path.startsWith(`DocumentosClientes/${clienteSeleccionado}/`) &&
-            item.path.endsWith(".pdf")
-          );
+          items.forEach(item => {
+            if (item.tipo === "carpeta") {
+              const card = document.createElement("a");
+              card.href = `?ruta=${encodeURIComponent(item.path)}`;
+              card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col items-center text-center brand-hover";
+              card.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-blue-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 7l3-3h15a2 2 0 012 2v12a2 2 0 01-2 2H3V7z" />
+                </svg>
+                <h3 class="text-md font-semibold text-gray-800">${item.nombre}</h3>
+                <p class="text-sm text-gray-500 mt-1">Abrir carpeta</p>
+              `;
+              contenedor.appendChild(card);
+            } else {
+              const urlPublica = `https://jhonpizavision.github.io/${repositorio}/${encodeURIComponent(item.path).replace(/%2F/g, "/")}`;
+              const extension = item.nombre.split(".").pop().toLowerCase();
 
-          if (archivos.length === 0) {
-            contenedor.innerHTML = "<p class='col-span-full text-center text-gray-600'>No hay documentos disponibles.</p>";
-          } else {
-            archivos.forEach(doc => {
-              const nombreArchivo = doc.path.split("/").pop();
-              const urlPublica = `https://jhonpizavision.github.io/${repositorio}/${encodeURIComponent(doc.path).replace(/%2F/g, "/")}`;
-              
+              let icono = `<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-gray-500 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>`;
+              if (extension === "pdf") icono = `<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-red-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>`;
+              if (["xlsx","xls"].includes(extension)) icono = `<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-green-600 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h16v16H4z" /></svg>`;
+              if (["png","jpg","jpeg"].includes(extension)) icono = `<svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-yellow-500 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4h16v16H4z" /></svg>`;
+
               const card = document.createElement("a");
               card.href = urlPublica;
               card.target = "_blank";
               card.className = "bg-white rounded-xl shadow border border-gray-200 p-5 flex flex-col text-center brand-hover";
               card.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-3 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-                <p class="text-sm font-medium text-gray-700 truncate">${nombreArchivo}</p>
+                ${icono}
+                <p class="text-sm font-medium text-gray-700 truncate">${item.nombre}</p>
               `;
               contenedor.appendChild(card);
-            });
-          }
+            }
+          });
+        }
 
-          // Botón volver
+        // Botón volver si no estamos en el nivel raíz
+        if (rutaActual !== "DocumentosClientes") {
+          const partes = rutaActual.split("/");
+          partes.pop();
+          const rutaPadre = partes.join("/");
           const volver = document.createElement("a");
-          volver.href = "./";
+          volver.href = `?ruta=${encodeURIComponent(rutaPadre || "DocumentosClientes")}`;
           volver.className = "block mt-8 text-center text-red-600 font-semibold underline";
-          volver.textContent = "← Volver a clientes";
+          volver.textContent = "← Volver";
           contenedor.after(volver);
         }
-      } catch (error) {
-        console.error("Error cargando contenido:", error);
-        contenedor.innerHTML = "<p class='text-center text-red-600'>Error al cargar los datos desde GitHub.</p>";
+
+      } catch (err) {
+        console.error(err);
+        contenedor.innerHTML = "<p class='text-center text-red-600'>Error al cargar contenido desde GitHub.</p>";
       }
     }
 
