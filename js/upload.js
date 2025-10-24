@@ -52,45 +52,124 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Funciones
     function inicializar() {
-        // Verificar token
-        if (!CONFIG.token || CONFIG.token === "ghp_tu_token_aqui") {
-            mostrarErrorToken();
-            return;
+        // Verificar si ya hay un token válido
+        if (CONFIG.hasToken()) {
+            verificarTokenValidez().then(tokenValido => {
+                if (tokenValido) {
+                    // Token válido, cargar clientes
+                    cargarClientesExistentes();
+                } else {
+                    // Token inválido, pedir uno nuevo
+                    CONFIG.clearToken();
+                    mostrarModalToken();
+                }
+            });
+        } else {
+            // No hay token, pedir uno
+            mostrarModalToken();
         }
-        
-        // Cargar clientes existentes
-        cargarClientesExistentes();
     }
 
-    function mostrarErrorToken() {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'p-4 bg-red-50 text-red-700 rounded-lg mb-6';
-        errorDiv.innerHTML = `
-            <div class="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <span class="font-medium">Token de GitHub no configurado</span>
+    function mostrarModalToken() {
+        // Crear modal para ingresar token
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Token de GitHub Requerido</h3>
+                <p class="text-gray-600 mb-4">
+                    Para subir archivos, necesitas un token de acceso personal de GitHub con permisos de repositorio.
+                </p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Token de GitHub</label>
+                    <input type="password" id="tokenInput" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+                           placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                </div>
+                <div class="mb-4 p-3 bg-blue-50 rounded-md">
+                    <p class="text-sm text-blue-700">
+                        <strong>Instrucciones:</strong><br>
+                        1. Ve a <a href="https://github.com/settings/tokens" target="_blank" class="underline">GitHub Settings → Tokens</a><br>
+                        2. Crea un nuevo token con permisos <strong>repo</strong><br>
+                        3. Copia y pega el token aquí
+                    </p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="btnCancelarToken" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                        Cancelar
+                    </button>
+                    <button id="btnGuardarToken" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                        Guardar Token
+                    </button>
+                </div>
             </div>
-            <p class="text-sm mt-2">
-                Para subir archivos, debes configurar un token de GitHub en el archivo <code class="bg-gray-100 px-1 rounded">config.js</code>.
-            </p>
-            <p class="text-sm mt-1">
-                <strong>Instrucciones:</strong> Ve a GitHub → Settings → Developer settings → Personal access tokens → 
-                Genera un nuevo token con permisos de "repo" y actualiza la variable <code class="bg-gray-100 px-1 rounded">CONFIG.token</code>.
-            </p>
         `;
         
-        // Insertar el mensaje de error al inicio del main
-        const main = document.querySelector('main');
-        const firstChild = main.firstElementChild;
-        main.insertBefore(errorDiv, firstChild);
+        document.body.appendChild(modal);
         
-        // Deshabilitar controles
-        btnSubir.disabled = true;
-        btnSeleccionar.disabled = true;
-        dropZone.style.opacity = '0.5';
-        dropZone.style.pointerEvents = 'none';
+        // Event listeners para el modal
+        document.getElementById('btnGuardarToken').addEventListener('click', () => {
+            const token = document.getElementById('tokenInput').value.trim();
+            if (token) {
+                CONFIG.setToken(token);
+                verificarTokenValidez().then(valido => {
+                    if (valido) {
+                        modal.remove();
+                        cargarClientesExistentes();
+                        // Habilitar controles
+                        btnSeleccionar.disabled = false;
+                        dropZone.style.opacity = '1';
+                        dropZone.style.pointerEvents = 'auto';
+                    } else {
+                        alert('Token inválido. Por favor, verifica que el token sea correcto y tenga permisos de repositorio.');
+                        CONFIG.clearToken();
+                    }
+                });
+            } else {
+                alert('Por favor, ingresa un token válido.');
+            }
+        });
+        
+        document.getElementById('btnCancelarToken').addEventListener('click', () => {
+            modal.remove();
+            // Deshabilitar controles si no hay token
+            if (!CONFIG.hasToken()) {
+                btnSeleccionar.disabled = true;
+                dropZone.style.opacity = '0.5';
+                dropZone.style.pointerEvents = 'none';
+            }
+        });
+        
+        // Enfocar el input
+        setTimeout(() => {
+            document.getElementById('tokenInput').focus();
+        }, 100);
+    }
+
+    async function verificarTokenValidez() {
+        const token = CONFIG.getToken();
+        if (!token) return false;
+        
+        try {
+            const respuesta = await fetch('https://api.github.com/user', {
+                headers: {
+                    'Authorization': `token ${token}`,
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            if (respuesta.ok) {
+                const userData = await respuesta.json();
+                console.log('✅ Token válido. Usuario:', userData.login);
+                return true;
+            } else {
+                console.error('❌ Token inválido. Status:', respuesta.status);
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Error verificando token:', error);
+            return false;
+        }
     }
 
     async function cargarClientesExistentes() {
@@ -143,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (archivos.length === 0) return;
 
         // Verificar token antes de procesar
-        if (!CONFIG.token || CONFIG.token === "ghp_tu_token_aqui") {
+        if (!CONFIG.hasToken()) {
             alert('Token de GitHub no configurado. No se pueden subir archivos.');
             return;
         }
@@ -211,9 +290,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const nuevoClienteValor = nuevoCliente.value.trim();
         const hayArchivos = archivosSeleccionados.length > 0;
         const hayCliente = clienteSeleccionado || nuevoClienteValor;
-        const tokenConfigurado = CONFIG.token && CONFIG.token !== "ghp_tu_token_aqui";
+        const tokenConfigurado = CONFIG.hasToken();
 
         btnSubir.disabled = !(hayArchivos && hayCliente && tokenConfigurado);
+        
+        // Actualizar estilo visual del botón
+        if (btnSubir.disabled) {
+            btnSubir.classList.add('opacity-50', 'cursor-not-allowed');
+        } else {
+            btnSubir.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
     }
 
     function formatearTamaño(bytes) {
@@ -225,8 +311,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function subirArchivos() {
-        if (!CONFIG.token || CONFIG.token === "ghp_tu_token_aqui") {
-            alert('Token de GitHub no configurado. Por favor, configura el token en config.js');
+        if (!CONFIG.hasToken()) {
+            alert('Token de GitHub no configurado. Por favor, ingresa tu token.');
+            mostrarModalToken();
             return;
         }
 
@@ -236,6 +323,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!cliente) {
             alert('Por favor, selecciona o ingresa un nombre de cliente.');
+            return;
+        }
+
+        // Validar nombre del cliente (caracteres válidos para rutas)
+        if (!/^[a-zA-Z0-9_\- ]+$/.test(cliente)) {
+            alert('El nombre del cliente solo puede contener letras, números, espacios, guiones y guiones bajos.');
             return;
         }
 
@@ -313,48 +406,68 @@ document.addEventListener('DOMContentLoaded', function() {
             // Actualizar estado del archivo
             actualizarProgresoArchivo(index, 'subiendo');
 
-            // Construir ruta completa
+            // Construir ruta completa (codificar caracteres especiales)
             let rutaCompleta = `${CONFIG.rutaBase}/${cliente}`;
             if (ruta) {
                 rutaCompleta += `/${ruta}`;
             }
-            rutaCompleta += `/${archivo.name}`;
+            
+            // Codificar el nombre del archivo para URL
+            const nombreArchivoCodificado = encodeURIComponent(archivo.name).replace(/%2F/g, '/');
+            rutaCompleta += `/${nombreArchivoCodificado}`;
 
             // Leer archivo como base64
             const contenidoBase64 = await leerArchivoComoBase64(archivo);
 
+            // Verificar tamaño del archivo (límite de GitHub ~100MB para API)
+            if (archivo.size > 90 * 1024 * 1024) {
+                throw new Error('El archivo es demasiado grande. El límite es 90MB.');
+            }
+
             // Crear el contenido para la API de GitHub
             const contenido = {
-                message: `Subir archivo: ${archivo.name}`,
-                content: contenidoBase64.split(',')[1] // Remover el prefijo data:*/*;base64,
+                message: `Subir archivo: ${archivo.name} - Cliente: ${cliente}`,
+                content: contenidoBase64.split(',')[1],
+                branch: 'archivos' // 👈 esta línea indica en qué rama guardar el archivo
             };
 
             // Hacer la petición a la API de GitHub
             const url = `https://api.github.com/repos/${CONFIG.usuario}/${CONFIG.repositorio}/contents/${rutaCompleta}`;
             
+            console.log('Subiendo archivo:', archivo.name, 'a:', rutaCompleta);
+            
             const respuesta = await fetch(url, {
                 method: 'PUT',
                 headers: {
-                    'Authorization': `token ${CONFIG.token}`,
-                    'Content-Type': 'application/json'
+                    'Authorization': `token ${CONFIG.getToken()}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/vnd.github.v3+json'
                 },
                 body: JSON.stringify(contenido)
             });
 
+            const responseData = await respuesta.json();
+
             if (!respuesta.ok) {
-                const errorData = await respuesta.json();
-                throw new Error(errorData.message || 'Error al subir archivo');
+                // Manejar errores específicos de GitHub
+                if (responseData.message.includes('sha')) {
+                    throw new Error('El archivo ya existe en el repositorio.');
+                } else if (responseData.message.includes('large')) {
+                    throw new Error('El archivo es demasiado grande para la API de GitHub.');
+                } else {
+                    throw new Error(responseData.message || `Error ${respuesta.status} al subir archivo`);
+                }
             }
 
-            const data = await respuesta.json();
+            console.log('✅ Archivo subido exitosamente:', responseData.content.html_url);
             
             return {
                 exito: true,
-                url: data.content.html_url
+                url: responseData.content.html_url
             };
 
         } catch (error) {
-            console.error('Error subiendo archivo:', error);
+            console.error('❌ Error subiendo archivo:', error);
             return {
                 exito: false,
                 mensaje: error.message
@@ -386,6 +499,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
             case 'completado':
                 barra.style.width = '100%';
+                barra.className = 'bg-green-600 h-2 rounded-full';
                 estadoElemento.textContent = 'Completado';
                 estadoElemento.className = 'text-xs font-medium text-green-600';
                 
@@ -404,7 +518,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 barra.className = 'bg-red-600 h-2 rounded-full';
                 estadoElemento.textContent = `Error: ${informacionAdicional}`;
                 estadoElemento.className = 'text-xs font-medium text-red-600';
-                elementoProgreso.classList.add('bg-red-50');
+                elementoProgreso.classList.add('bg-red-50', 'border', 'border-red-200');
                 break;
         }
     }
@@ -415,7 +529,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (exitosos > 0) {
             const divExito = document.createElement('div');
-            divExito.className = 'p-4 bg-green-50 text-green-700 rounded-lg';
+            divExito.className = 'p-4 bg-green-50 text-green-700 rounded-lg border border-green-200';
             divExito.innerHTML = `
                 <div class="flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -423,13 +537,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     </svg>
                     <span class="font-medium">${exitosos} archivo(s) subido(s) correctamente</span>
                 </div>
+                <p class="text-sm mt-2">Los archivos se han guardado en el repositorio de GitHub.</p>
             `;
             resultados.appendChild(divExito);
         }
 
         if (fallidos > 0) {
             const divError = document.createElement('div');
-            divError.className = 'p-4 bg-red-50 text-red-700 rounded-lg mt-3';
+            divError.className = 'p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 mt-3';
             divError.innerHTML = `
                 <div class="flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -437,6 +552,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     </svg>
                     <span class="font-medium">${fallidos} archivo(s) fallaron al subir</span>
                 </div>
+                <p class="text-sm mt-2">Revisa la consola del navegador para más detalles.</p>
             `;
             resultados.appendChild(divError);
         }
@@ -449,13 +565,23 @@ document.addEventListener('DOMContentLoaded', function() {
             location.reload();
         });
         resultados.appendChild(btnNuevaSubida);
+
+        // Re-habilitar controles básicos
+        btnCancelar.disabled = false;
     }
 
     function cancelarSubida() {
-        if (confirm('¿Estás seguro de que quieres cancelar? Se perderán los archivos seleccionados.')) {
-            archivosSeleccionados = [];
-            actualizarListaArchivos();
-            validarFormulario();
+        if (archivosSeleccionados.length > 0) {
+            if (confirm('¿Estás seguro de que quieres cancelar? Se perderán los archivos seleccionados.')) {
+                archivosSeleccionados = [];
+                actualizarListaArchivos();
+                validarFormulario();
+                progresoContainer.classList.add('hidden');
+                resultadosContainer.classList.add('hidden');
+            }
+        } else {
+            // Redirigir al explorador si no hay archivos
+            window.location.href = 'index.html';
         }
     }
 });
