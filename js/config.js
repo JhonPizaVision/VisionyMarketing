@@ -3,19 +3,27 @@ const CONFIG = {
     usuario: "JhonPizaVision",
     repositorio: "VisionyMarketing",
     baseURL: `https://api.github.com/repos/JhonPizaVision/VisionyMarketing/git/trees/main?recursive=1`,
-    rutaBase: "DocumentosClientes",
-    // Token codificado en Base64 - GitHub puede detectarlo igualmente
-    tokenCodificado: "Z2l0aHViX3BhdF8xMUJRSktVTEEwQ3ZPSXJ6N3NjZmpQX0dvdmhVMW5SOUU4YnN2SlZNdGV2YWJ5SXJTbk91bE1RZFp4YTJVWjdicGNUT09BS1NBSmNzdTZJbHZx"
+    rutaBase: "DocumentosClientes"
 };
 
-// Función para decodificar el token
+// Función para obtener el token (ahora se pide al usuario)
 CONFIG.getToken = function() {
-    try {
-        return atob(this.tokenCodificado);
-    } catch (error) {
-        console.error('Error decodificando token:', error);
-        return null;
-    }
+    return sessionStorage.getItem('github_token');
+};
+
+// Función para guardar el token
+CONFIG.setToken = function(token) {
+    sessionStorage.setItem('github_token', token);
+};
+
+// Función para eliminar el token
+CONFIG.clearToken = function() {
+    sessionStorage.removeItem('github_token');
+};
+
+// Verificar si hay token
+CONFIG.hasToken = function() {
+    return !!this.getToken();
 };
 
 // Obtener ruta actual desde URL
