@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Subir Archivos - Visión y Marketing</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="https://www.visionymarketing.com.co/favicon.ico" type="image/x-icon">
+  <style>
+    body { background-color: #fff9f9; }
+    .brand-red { background-color: #c1121f; }
+    .loader {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #c1121f;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .drop-zone {
+      border: 2px dashed #c1121f;
+      border-radius: 10px;
+      transition: all 0.3s ease;
+    }
+    .drop-zone.active {
+      border-color: #4CAF50;
+      background-color: rgba(76, 175, 80, 0.1);
+    }
+  </style>
+</head>
+
+<body class="text-gray-800 font-sans flex flex-col min-h-screen">
+  
+  <!-- HEADER -->
+  <div id="header"></div>
+
+  <!-- CONTENIDO -->
+  <main class="flex-grow max-w-4xl mx-auto px-6 py-10">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6">Subir Archivos al Portal</h2>
+      
+      <!-- Selector de cliente y ruta -->
+      <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Cliente</label>
+          <select id="selectCliente" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+            <option value="">Seleccionar cliente existente</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-2">Nuevo cliente</label>
+          <input type="text" id="nuevoCliente" placeholder="Nombre del nuevo cliente" 
+                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+        </div>
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Ruta dentro del cliente (opcional)</label>
+        <input type="text" id="rutaCliente" placeholder="Ej: documentos/2024/facturas" 
+               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500">
+        <p class="text-xs text-gray-500 mt-1">Dejar vacío para subir directamente en la carpeta del cliente</p>
+      </div>
+
+      <!-- Zona de arrastrar y soltar -->
+      <div id="dropZone" class="drop-zone p-8 text-center mb-6">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+        <p class="text-lg font-medium text-gray-700">Arrastra y suelta tus archivos aquí</p>
+        <p class="text-sm text-gray-500 mt-2">o</p>
+        <input type="file" id="fileInput" multiple class="hidden">
+        <button id="btnSeleccionar" class="mt-4 bg-red-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-red-700 transition">
+          Seleccionar Archivos
+        </button>
+        <p class="text-xs text-gray-500 mt-4">Máximo 25MB por archivo. Formatos permitidos: PDF, Excel, Word, Imágenes, etc.</p>
+      </div>
+
+      <!-- Lista de archivos seleccionados -->
+      <div id="listaArchivos" class="mb-6 hidden">
+        <h3 class="text-lg font-medium text-gray-700 mb-4">Archivos seleccionados</h3>
+        <div id="archivosContainer" class="space-y-3"></div>
+      </div>
+
+      <!-- Botones de acción -->
+      <div class="flex justify-end space-x-4">
+        <button id="btnCancelar" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition">
+          Cancelar
+        </button>
+        <button id="btnSubir" class="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+          Subir Archivos
+        </button>
+      </div>
+
+      <!-- Progreso de subida -->
+      <div id="progresoContainer" class="mt-6 hidden">
+        <h3 class="text-lg font-medium text-gray-700 mb-4">Progreso de subida</h3>
+        <div id="progresoGlobal" class="w-full bg-gray-200 rounded-full h-2.5 mb-4">
+          <div id="barraProgresoGlobal" class="bg-red-600 h-2.5 rounded-full" style="width: 0%"></div>
+        </div>
+        <div id="detalleProgreso" class="space-y-3"></div>
+      </div>
+
+      <!-- Resultados -->
+      <div id="resultadosContainer" class="mt-6 hidden">
+        <h3 class="text-lg font-medium text-gray-700 mb-4">Resultados</h3>
+        <div id="resultados" class="space-y-2"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <div id="footer"></div>
+
+  <!-- SCRIPTS -->
+  <script src="js/config.js"></script>
+  <script src="js/header.js"></script>
+  <script src="js/footer.js"></script>
+  <script src="js/upload.js"></script>
+
+</body>
+</html>
