@@ -427,8 +427,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Crear el contenido para la API de GitHub
             const contenido = {
                 message: `Subir archivo: ${archivo.name} - Cliente: ${cliente}`,
-                content: contenidoBase64.split(',')[1],
-                branch: 'archivos' // 👈 esta línea indica en qué rama guardar el archivo
+                content: contenidoBase64.split(',')[1] // Remover el prefijo data:*/*;base64,
             };
 
             // Hacer la petición a la API de GitHub
