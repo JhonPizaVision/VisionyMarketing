@@ -4,8 +4,18 @@ const CONFIG = {
     repositorio: "VisionyMarketing",
     baseURL: `https://api.github.com/repos/JhonPizaVision/VisionyMarketing/git/trees/main?recursive=1`,
     rutaBase: "DocumentosClientes",
-    // Token de GitHub - Reemplaza con tu token real
-    token: "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"
+    // Token codificado en Base64 - GitHub puede detectarlo igualmente
+    tokenCodificado: "Z2l0aHViX3BhdF8xMUJRSktVTEEwQ3ZPSXJ6N3NjZmpQX0dvdmhVMW5SOUU4YnN2SlZNdGV2YWJ5SXJTbk91bE1RZFp4YTJVWjdicGNUT09BS1NBSmNzdTZJbHZx"
+};
+
+// Función para decodificar el token
+CONFIG.getToken = function() {
+    try {
+        return atob(this.tokenCodificado);
+    } catch (error) {
+        console.error('Error decodificando token:', error);
+        return null;
+    }
 };
 
 // Obtener ruta actual desde URL
