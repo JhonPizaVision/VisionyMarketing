@@ -4,7 +4,7 @@ const CONFIG = {
     repositorio: "VisionyMarketing",
     baseURL: `https://api.github.com/repos/JhonPizaVision/VisionyMarketing/git/trees/main?recursive=1`,
     rutaBase: "DocumentosClientes",
-    token: process.env.GITHUB_TOKEN
+    token: process.env.TOKEN
 };
 
 // Obtener ruta actual desde URL
