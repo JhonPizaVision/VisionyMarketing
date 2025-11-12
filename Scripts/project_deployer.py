@@ -23,6 +23,11 @@ BASE_DIR = Path("C:/Scripts") # Ruta base explícita solicitada por el usuario
 CONFIG_ENV_PATH = BASE_DIR / "config.env"
 LOCAL_VERSION_FILE = ".local_version.txt"
 
+# --- DETECCIÓN DE EJECUCIÓN DESDE EXE ---
+def is_running_from_exe():
+    """Detecta si el script se está ejecutando desde un archivo .exe"""
+    return getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS')
+
 # --- FUNCIONES DE UTILIDAD ---
 
 def clear_console(step_name):
@@ -119,7 +124,6 @@ def download_project_files(client, project, project_dir, target_api_path=None):
 
     return True, downloaded_files
 
-
 def check_env_variables(project_dir, project_name):
     """Comprueba y pide variables de entorno faltantes en config.env."""
     clear_console("PASO 2: Verificando variables de entorno")
@@ -156,7 +160,6 @@ def check_env_variables(project_dir, project_name):
         except Exception as e:
             print(f"ADVERTENCIA: No se pudo leer config.env. Se continuará. {e}")
 
-
     missing_vars = required_vars - set(existing_vars.keys())
 
     if missing_vars:
@@ -183,8 +186,21 @@ def setup_virtual_environment(project_dir, project_name):
     if not venv_dir.exists():
         print("Creando nuevo VENV...")
         try:
-            run([sys.executable, "-m", "venv", str(venv_dir)], check=True, stdout=sys.stdout, stderr=sys.stderr)
-            print("VENV creado exitosamente.")
+            # DETECCIÓN CRÍTICA: Si estamos en un EXE, usar python.exe del sistema
+            if is_running_from_exe():
+                # Buscar Python en el sistema
+                python_path = shutil.which("python") or shutil.which("python.exe")
+                if python_path:
+                    run([python_path, "-m", "venv", str(venv_dir)], check=True, stdout=sys.stdout, stderr=sys.stderr)
+                    print("VENV creado exitosamente usando Python del sistema.")
+                else:
+                    print("ERROR: No se encontró Python en el sistema PATH.")
+                    print("Por favor, instale Python o ejecute project_deployer.py directamente.")
+                    return None
+            else:
+                # Ejecución normal desde Python
+                run([sys.executable, "-m", "venv", str(venv_dir)], check=True, stdout=sys.stdout, stderr=sys.stderr)
+                print("VENV creado exitosamente.")
         except CalledProcessError as e:
             print(f"ERROR: No se pudo crear el VENV. {e}")
             return None
@@ -198,8 +214,8 @@ def setup_virtual_environment(project_dir, project_name):
             pip_executable = venv_dir / "bin" / "pip"
 
         if not pip_executable.exists():
-             print(f"ADVERTENCIA: No se encontró el ejecutable de pip en VENV. Usando 'pip' global.")
-             pip_executable = "pip" 
+            print(f"ADVERTENCIA: No se encontró el ejecutable de pip en VENV.")
+            return venv_dir
 
         print("Instalando/actualizando dependencias. Esto puede tomar un momento...")
         try:
@@ -308,6 +324,64 @@ def download_project_files(project_dir, api_url):
 
     print(f"Actualización completada ({{found_files}} archivos).")
     return True
+
+def check_env_variables_after_update(project_dir, project_name):
+    #Comprueba y pide variables de entorno faltantes después de una actualización.
+    print("\\nVerificando variables de entorno después de la actualización...")
+    
+    env_requirements_path = project_dir / f"{{project_name}}_ENV.txt"
+    if not env_requirements_path.exists():
+        print(f"ADVERTENCIA: No se encontró el archivo de requisitos de ENV: {{env_requirements_path}}")
+        return True
+
+    required_vars = set()
+    try:
+        with open(env_requirements_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    required_vars.add(line.split('=')[0]) 
+    except Exception as e:
+        print(f"ERROR: No se pudo leer el archivo de requisitos de ENV. {{e}}")
+        return False
+
+    if not required_vars:
+        print("No hay variables de entorno requeridas en el archivo _ENV.txt.")
+        return True
+
+    existing_vars = {{}}
+    if CONFIG_ENV_PATH.exists():
+        try:
+            with open(CONFIG_ENV_PATH, 'r', encoding='utf-8') as f:
+                for line in f:
+                    match = re.match(r'^(\\w+)=(.*)$', line.strip())
+                    if match:
+                        key, value = match.groups()
+                        existing_vars[key] = value
+        except Exception as e:
+            print(f"ADVERTENCIA: No se pudo leer config.env. {{e}}")
+            return False
+
+    missing_vars = required_vars - set(existing_vars.keys())
+
+    if missing_vars:
+        print(f"\\nFaltan las siguientes variables en {{CONFIG_ENV_PATH}}: {{', '.join(missing_vars)}}")
+        print("Por favor, ingrese los valores para continuar:")
+        
+        try:
+            with open(CONFIG_ENV_PATH, 'a', encoding='utf-8') as f:
+                f.write(f"\\n# --- Variables añadidas para el proyecto: {{project_name}} (actualización) ---\\n")
+                for var in sorted(list(missing_vars)):
+                    value = input(f"Ingrese el valor para la variable '{{var}}': ").strip()
+                    f.write(f"{{var}}={{value}}\\n")
+                    print(f"  '{{var}}' añadido a config.env")
+            return True
+        except Exception as e:
+            print(f"ERROR: No se pudo escribir en config.env. Revise permisos. {{e}}")
+            return False
+    else:
+        print("Todas las variables de entorno requeridas ya están presentes.")
+        return True
 
 def run_project_deployment_steps(project_dir, project_name):
     clear_console("ACTUALIZACIÓN: Configurando VENV y Dependencias")
@@ -432,13 +506,18 @@ def main():
             print("FALLO CRÍTICO: No se pudo actualizar el proyecto. Abortando ejecución.")
             return
 
-        # 4b. Reconfigurar VENV y dependencias (solo si la descarga fue exitosa)
+        # 4b. Verificar variables de entorno después de la actualización
+        if not check_env_variables_after_update(PROJECT_DIR, PROJECT):
+            print("FALLO CRÍTICO: No se pudieron configurar las variables de entorno. Abortando ejecución.")
+            return
+
+        # 4c. Reconfigurar VENV y dependencias (solo si la descarga fue exitosa)
         # Esto solo lo hacemos si hay una actualización
         if not run_project_deployment_steps(PROJECT_DIR, PROJECT):
             print("FALLO CRÍTICO: No se pudo reconfigurar el entorno. Abortando ejecución.")
             return
             
-        # 4c. Guardar la nueva versión localmente
+        # 4d. Guardar la nueva versión localmente
         try:
             with open(local_version_path, 'w', encoding='utf-8') as f:
                 f.write(remote_version)
@@ -490,8 +569,8 @@ def install_pyinstaller():
 
 def download_icon(project_dir):
     """Descarga el icono personalizado ICO directamente desde GitHub."""
-    icon_url = "https://raw.githubusercontent.com/JhonPizaVision/VisionyMarketing/main/Scripts/icono_exe.ico"
-    icon_path = project_dir / "icono_exe.ico"
+    icon_url = "https://raw.githubusercontent.com/JhonPizaVision/VisionyMarketing/main/Scripts/icono_exe.png"
+    icon_path = project_dir / "icono_exe.png"
     
     try:
         # Descargar el icono ICO directamente
@@ -678,8 +757,15 @@ def create_desktop_shortcut(exe_path, project):
         print(f"  - El ejecutable está en: {exe_path}")
         print(f"  - Cópielo manualmente a su escritorio")
 
+
 def main():
     """Función principal de la aplicación."""
+    
+    # Detección de ejecución desde EXE
+    if is_running_from_exe():
+        print("🔧 EJECUTANDO DESDE ARCHIVO COMPILADO")
+        print("Nota: Algunas funcionalidades pueden requerir Python instalado en el sistema.")
+        print()
     
     # 0. Asegurar directorios base
     ensure_base_directories()
@@ -690,7 +776,7 @@ def main():
     
     # --- DESPLIEGUE INICIAL (Descarga y Configuración del VENV) ---
     
-    # 2. Descargar archivos del proyecto (Incluye los archivos .py, _ENV.txt y _REQUERIMENTS.txt)
+    # 2. Descargar archivos del proyecto
     clear_console(f"PASO 1: Descargando archivos del proyecto {project}")
     success, downloaded_files = download_project_files(client, project, project_dir)
     if not success:
@@ -711,7 +797,6 @@ def main():
     # --- PROCESO DE GENERACIÓN Y COMPILACIÓN DEL EJECUTABLE ---
 
     # 5. Generar el script de ejecución dinámico (RUN_PROJECT.py)
-    # Lo guardamos en la carpeta del proyecto
     executor_script_path = generate_executor_script(client, project, project_dir)
     print(f"\nScript de ejecución generado en: {executor_script_path.name}")
 
@@ -724,7 +809,6 @@ def main():
         print(f"  - Archivo temporal '{executor_script_path.name}' eliminado.")
     except Exception as e:
          print(f"ADVERTENCIA: No se pudo eliminar el archivo temporal. {e}")
-
 
     if final_exe_path:
         # 8. Crear acceso directo en el escritorio
