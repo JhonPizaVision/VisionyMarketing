@@ -541,17 +541,56 @@ if __name__ == "__main__":
     
     return executor_path
 
+def check_python_available():
+    """Verifica si Python está disponible en el sistema y si PyInstaller está instalado."""
+    python_path = shutil.which("python") or shutil.which("python.exe") or shutil.which("python3")
+    
+    if python_path:
+        print(f"Python encontrado en el sistema: {python_path}")
+        
+        # Verificar si PyInstaller está instalado
+        try:
+            result = run([python_path, "-c", "import PyInstaller; print('PyInstaller OK')"], 
+                        capture_output=True, text=True, timeout=10)
+            if "PyInstaller OK" in result.stdout:
+                print("PyInstaller está instalado en el sistema.")
+                return True
+            else:
+                print("PyInstaller no está instalado en el sistema Python.")
+                return False
+        except (CalledProcessError, TimeoutError):
+            print("No se pudo verificar PyInstaller en el sistema Python.")
+            return False
+    else:
+        print("Python no encontrado en el sistema PATH.")
+        return False
+
 def install_pyinstaller():
     """Instala PyInstaller y Pillow en el entorno actual si no están instalados."""
     clear_console("PASO 4: Verificando e instalando dependencias")
     
     # Si estamos ejecutando desde EXE, necesitamos Python del sistema
     if is_running_from_exe():
-        python_path = check_python_available()
-        if not python_path:
-            print("ERROR: Python no está disponible en el sistema.")
-            print("Para compilar ejecutables, necesitas instalar Python en el sistema.")
-            return False
+        print("Ejecutando desde .exe - verificando Python del sistema...")
+        
+        # Primero verificar si Python está disponible
+        python_available = check_python_available()
+        
+        if not python_available:
+            print("\n⚠️  ADVERTENCIA: Python no está disponible o PyInstaller no está instalado.")
+            print("Para compilar ejecutables, necesitas:")
+            print("1. Instalar Python en el sistema")
+            print("2. Instalar PyInstaller: pip install pyinstaller")
+            print("\nAlternativa: Ejecuta el script RUN_{project}.py directamente desde Python.")
+            print("¿Deseas continuar sin compilar el .exe? (s/n): ", end="")
+            respuesta = input().strip().lower()
+            
+            if respuesta != 's':
+                print("Compilación cancelada por el usuario.")
+                return False
+            else:
+                print("Continuando sin compilar .exe...")
+                return False
         return True
     
     # Ejecución normal desde Python
@@ -628,6 +667,9 @@ def compile_to_exe(script_path, client, project):
     clear_console("PASO 5: Compilando a Ejecutable (.exe)")
     
     if not install_pyinstaller():
+        print("\n⚠️  No se pudo proceder con la compilación.")
+        print(f"El proyecto se descargó exitosamente en: {script_path.parent}")
+        print(f"Puedes ejecutar el script directamente: python {script_path.name}")
         return None
         
     exe_name = f"RUN_{project}.exe"
@@ -642,7 +684,7 @@ def compile_to_exe(script_path, client, project):
         # Construir comando de PyInstaller - USAR MÓDULO EN LUGAR DE COMANDO
         if is_running_from_exe():
             # Cuando se ejecuta desde EXE, no podemos usar el comando pyinstaller directamente
-            print("ADVERTENCIA: Ejecutando desde .exe, usando método alternativo...")
+            print("Ejecutando desde .exe, usando Python del sistema para compilar...")
             
             # Intentar encontrar python en el sistema
             python_path = shutil.which("python") or shutil.which("python.exe")
@@ -654,11 +696,13 @@ def compile_to_exe(script_path, client, project):
                     "--distpath", str(project_dir),
                     "--name", exe_name,
                     "--noconfirm",
-                    "--clean"
+                    "--clean",
+                    "--log-level=WARN"
                 ]
+                print(f"Usando Python del sistema: {python_path}")
             else:
                 print("ERROR: No se encontró Python en el sistema.")
-                print("Para compilar ejecutables, Python debe estar instalado en el sistema.")
+                print("Instala Python y vuelve a ejecutar ProjectDeployer.")
                 return None
         else:
             # Ejecución normal desde Python
@@ -669,7 +713,8 @@ def compile_to_exe(script_path, client, project):
                 "--distpath", str(project_dir),
                 "--name", exe_name,
                 "--noconfirm",
-                "--clean"
+                "--clean",
+                "--log-level=WARN"
             ]
         
         # Agregar icono si está disponible
@@ -682,9 +727,24 @@ def compile_to_exe(script_path, client, project):
         # Agregar el script a compilar al final
         cmd.append(str(script_path))
         
-        print(f"Ejecutando PyInstaller...")
-        print(f"Comando: {' '.join(cmd)}")
-        run(cmd, check=True, stdout=sys.stdout, stderr=sys.stderr)
+        print(f"Ejecutando PyInstaller... (esto puede tardar varios minutos)")
+        print(f"Comando: {' '.join(cmd[:5])}... {cmd[-1]}")
+        
+        # Ejecutar con timeout de 5 minutos
+        import threading
+        import queue
+        
+        def run_subprocess():
+            run(cmd, check=True, stdout=sys.stdout, stderr=sys.stderr)
+        
+        thread = threading.Thread(target=run_subprocess)
+        thread.start()
+        thread.join(timeout=300)  # 5 minutos timeout
+        
+        if thread.is_alive():
+            print("\n⚠️  La compilación está tomando más tiempo de lo esperado.")
+            print("Puedes continuar usando el script .py directamente.")
+            return None
             
         final_exe_path = project_dir / exe_name
         
@@ -700,13 +760,13 @@ def compile_to_exe(script_path, client, project):
                 print(f"ADVERTENCIA: No se pudo eliminar el archivo de icono. {e}")
 
         if final_exe_path.exists():
-            print(f"Compilación exitosa. Ejecutable creado en: {final_exe_path}")
+            print(f"✅ Compilación exitosa. Ejecutable creado en: {final_exe_path}")
             
             # Verificación adicional del ejecutable
             if final_exe_path.stat().st_size > 0:
                 print(f"  - Tamaño del ejecutable: {final_exe_path.stat().st_size / (1024*1024):.2f} MB")
             else:
-                print("ADVERTENCIA: El ejecutable parece estar vacío o corrupto.")
+                print("⚠️  ADVERTENCIA: El ejecutable parece estar vacío o corrupto.")
                 
             return final_exe_path
         else:
@@ -715,13 +775,19 @@ def compile_to_exe(script_path, client, project):
             
     except CalledProcessError as e:
         print(f"ERROR: La compilación con PyInstaller falló. {e}")
+        print("Puedes ejecutar el script .py directamente en lugar del .exe.")
         return None
     except FileNotFoundError as e:
         print(f"ERROR: No se pudo encontrar el ejecutable de Python o PyInstaller.")
-        print(f"  - Asegúrate de que Python esté instalado en el sistema.")
-        print(f"  - Verifica que PyInstaller esté instalado: pip install pyinstaller")
+        print("  - Asegúrate de que Python esté instalado en el sistema.")
+        print("  - Verifica que PyInstaller esté instalado: pip install pyinstaller")
         return None
-
+    except Exception as e:
+        print(f"ERROR inesperado durante la compilación: {e}")
+        print("Puedes ejecutar el script .py directamente:")
+        print(f"  python {script_path}")
+        return None
+        
 def clean_pyinstaller_temp_files(project_dir, project):
     """Limpia todos los archivos temporales de PyInstaller."""
     try:
