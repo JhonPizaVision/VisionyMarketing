@@ -54,71 +54,103 @@ def install_pyinstaller_if_needed():
             print(f"ERROR: No se pudo instalar PyInstaller. {e}")
             return False
 
-def create_readme_instructions(project_dir, project, client):
-    """Crea un archivo README_INSTRUCCIONES.txt con pasos detallados."""
-    readme_content = f"""INSTRUCCIONES PARA EJECUTAR PROYECTO: {project}
-CLIENTE: {client}
-AUTOR: JHON PIZA - INNOVATIONS BI
-==============================================================
+def create_readme():
+    """Crea un archivo README.txt con información del autor y uso."""
+    import time
+    
+    readme_content = """PROJECT DEPLOYER - JHON PIZA - INNOVATIONS BI
+===================================================
 
-OPCIÓN 1: EJECUTAR DIRECTAMENTE (Requiere Python)
--------------------------------------------------
-1. Instalar Python desde: https://python.org
-2. Instalar dependencias necesarias:
-   pip install requests
-   pip install pyinstaller  (solo si quieres compilar)
-   pip install pillow       (solo si quieres compilar)
-3. Navegar a la carpeta:
-   cd "{project_dir}"
-4. Ejecutar el script:
-   python RUN_{project}.py
+DESCRIPCIÓN:
+------------
+Project Deployer es una herramienta para automatizar el despliegue de proyectos 
+Python desde GitHub. Descarga, configura y compila scripts automáticamente.
 
-OPCIÓN 2: USAR EL EJECUTABLE .EXE
----------------------------------
-1. Si ya tienes RUN_{project}.exe, haz doble clic en él.
-2. Si el .exe da error, reinstalar dependencias y recompilar.
+CARACTERÍSTICAS:
+----------------
+• Descarga automática de proyectos desde GitHub
+• Configuración de variables de entorno
+• Creación de entornos virtuales
+• Compilación a ejecutables .exe
+• Actualización automática de versiones
+• Iconos personalizados
 
-OPCIÓN 3: COMPILAR NUEVO .EXE
-------------------------------
-1. Asegúrate de tener Python instalado.
-2. Instalar dependencias (ejecutar en CMD como Administrador):
+REQUISITOS DEL SISTEMA:
+-----------------------
+• Windows 7/8/10/11 o Windows Server 2012+
+• Conexión a Internet para descargar proyectos
+• (Opcional) Python instalado para compilar ejecutables
+
+INSTALACIÓN DE DEPENDENCIAS (para compilación):
+------------------------------------------------
+Si deseas compilar proyectos a ejecutables .exe, necesitas instalar:
+
+1. Python (si no está instalado):
+   • Descargar desde: https://python.org
+   • Durante instalación, marcar "Add Python to PATH"
+
+2. Dependencias de Python (ejecutar en CMD como Administrador):
    pip install requests
    pip install pyinstaller
    pip install pillow
-3. Navegar a la carpeta:
-   cd "{project_dir}"
-4. Compilar:
-   pyinstaller --onefile --hidden-import=requests --hidden-import=json RUN_{project}.py
 
-SOLUCIÓN DE PROBLEMAS COMUNES:
-------------------------------
-1. Error "No module named 'requests'":
-   Ejecutar: pip install requests
+3. Verificar instalación:
+   python --version
+   pip list | findstr "requests pyinstaller pillow"
 
-2. Error "No module named 'PIL'":
-   Ejecutar: pip install pillow
+USO:
+----
+1. Ejecutar ProjectDeployer.exe
+2. Ingresar nombre del CLIENTE
+3. Ingresar nombre del PROYECTO
+4. El sistema hará el resto automáticamente
 
-3. El .exe no se ejecuta:
-   - Verificar que el archivo no esté corrupto
-   - Recompilar con las dependencias incluidas
-   - Usar la opción de ejecutar con Python
+PROBLEMAS COMUNES Y SOLUCIONES:
+--------------------------------
+1. Error "No module named 'requests'" al ejecutar .exe:
+   • Instalar requests: pip install requests
+   • Recompilar el proyecto desde ProjectDeployer
 
-4. Error de permisos:
-   Ejecutar CMD/PowerShell como Administrador
+2. Error al compilar con PyInstaller:
+   • Verificar que Python esté instalado
+   • Ejecutar: pip install --upgrade pyinstaller
+   • Intentar compilación manual: pyinstaller --onefile script.py
 
-CONTACTO Y SOPORTE:
--------------------
-Sistema desarrollado por JHON PIZA - INNOVATIONS BI
-Para soporte técnico, contactar al administrador.
+3. El ejecutable no funciona:
+   • Ejecutar el script .py directamente: python nombre_script.py
+   • Verificar que todas las dependencias estén instaladas
 
-FECHA: {time.strftime("%d/%m/%Y")}
+4. Error de conexión a GitHub:
+   • Verificar conexión a Internet
+   • Comprobar que el repositorio existe y es accesible
+
+ESTRUCTURA DE CARPETAS:
+-----------------------
+C:/Scripts/
+├── config.env                # Variables de entorno globales
+├── CLIENTE/                  # Carpeta por cliente
+│   └── PROYECTO/             # Carpeta del proyecto
+│       ├── venv/             # Entorno virtual
+│       ├── proyecto.py       # Script principal
+│       ├── RUN_proyecto.py   # Script de ejecución
+│       ├── RUN_proyecto.exe  # Ejecutable compilado
+│       └── *_REQUERIMENTS.txt # Dependencias
+
+SOPORTE TÉCNICO:
+----------------
+• Sistema desarrollado por: JHON PIZA - INNOVATIONS BI
+• Para problemas técnicos, contactar al administrador
+• Mantenimiento y actualizaciones automáticas desde GitHub
+
+VERSIÓN: 2.0
+FECHA: """ + time.strftime("%d/%m/%Y") + """
+ÚLTIMA ACTUALIZACIÓN: Sistema automático de despliegue con compilación integrada
 """
 
-    readme_path = project_dir / "README_INSTRUCCIONES.txt"
-    with open(readme_path, 'w', encoding='utf-8') as f:
+    with open("README.txt", "w", encoding="utf-8") as f:
         f.write(readme_content)
+    print("Archivo README.txt creado.")
     
-    return readme_path
 
 def compress_to_zip(exe_path, zip_name="ProjectDeployer_JhonPiza.zip"):
     """Comprime el ejecutable a un archivo ZIP."""
@@ -263,105 +295,46 @@ def compile_project_deployer():
         clean_pyinstaller_files()
 
 def main():
-    """Función principal de la aplicación."""
+    """Función principal."""
+    import time
     
-    # Detección de ejecución desde EXE
-    if is_running_from_exe():
-        print("🔧 EJECUTANDO DESDE ARCHIVO COMPILADO")
-        print("Nota: Algunas funcionalidades pueden requerir Python instalado en el sistema.")
-        print()
+    print_banner()
     
-    # 0. Asegurar directorios base
-    ensure_base_directories()
+    start_time = time.time()
+    success, zip_name = compile_project_deployer()
     
-    # 1. Obtener entradas
-    client, project = get_user_input()
-    project_dir = BASE_DIR / client / project
-    
-    # --- DESPLIEGUE INICIAL ---
-    
-    # 2. Descargar archivos del proyecto
-    clear_console(f"PASO 1: Descargando archivos del proyecto {project}")
-    success, downloaded_files = download_project_files(client, project, project_dir)
-    if not success:
-        print("\nDespliegue inicial fallido: No se pudo descargar el proyecto.")
-        return
-    print(f"\nDescarga de archivos del proyecto completada ({len(downloaded_files)} archivos).")
-
-    # 3. Chequear variables de entorno
-    check_env_variables(project_dir, project)
-
-    # 4. Configurar VENV e instalar requerimientos
-    venv_path = setup_virtual_environment(project_dir, project)
-    
-    if not venv_path:
-        print("\nERROR CRÍTICO: El VENV no se configuró correctamente.")
-        return
+    if success and zip_name:
+        print("\n" + "="*60)
+        print("🎉 ¡PROJECT_DEPLOYER COMPILADO Y EMPAQUETADO EXITOSAMENTE!")
+        print("="*60)
+        print(f"Archivo ZIP creado: {zip_name}")
+        print("\nINSTRUCCIONES:")
+        print("1. Distribuye el archivo ZIP a los usuarios")
+        print("2. Los usuarios deben extraer el contenido")
+        print("3. Ejecutar 'ProjectDeployer_JhonPiza.exe'")
+        print("\nVENTAJAS:")
+        print("• No requiere Python instalado en las computadoras destino")
+        print("• Sistema automático de actualización")
+        print("• Fácil distribución y uso")
         
-    # 5. Generar el script de ejecución
-    executor_script_path = generate_executor_script(client, project, project_dir)
-    print(f"\nScript de ejecución generado en: {executor_script_path.name}")
-
-    # 6. Crear archivo de instrucciones
-    readme_path = create_readme_instructions(project_dir, project, client)
-    print(f"Archivo de instrucciones creado: {readme_path.name}")
-
-    # 7. Preguntar sobre compilación
-    print("\n" + "="*60)
-    print("OPCIONES DE EJECUCIÓN:")
-    print("1. Compilar a .exe (requiere Python y PyInstaller instalados)")
-    print("2. Crear archivo .bat para ejecutar con Python")
-    print("3. Solo generar archivos, ejecutar manualmente después")
-    print("="*60)
-    
-    opcion = input("\nSeleccione opción (1/2/3) [1]: ").strip()
-    
-    if opcion == "" or opcion == "1":
-        # Intentar compilar
-        print("\nIntentando compilar a .exe...")
-        print("NOTA: Esto requiere tener instalado:")
-        print("  - Python (https://python.org)")
-        print("  - PyInstaller (pip install pyinstaller)")
-        print("  - Requests (pip install requests)")
-        print("  - Pillow (pip install pillow)")
+        elapsed_time = time.time() - start_time
+        print(f"\n⏱️  Tiempo total del proceso: {elapsed_time:.2f} segundos")
         
-        final_exe_path = compile_to_exe(executor_script_path, client, project)
-        
-        if final_exe_path:
-            create_desktop_shortcut(final_exe_path, project)
-            print("\n✅ COMPILACIÓN EXITOSA!")
-            print(f"Ejecutable: {final_exe_path.name}")
-        else:
-            print("\n⚠️  La compilación falló. Creando alternativa .bat...")
-            bat_path = create_bat_file(project_dir, project, client)
-            create_desktop_shortcut_bat(bat_path, project)
-            print(f"✅ Se creó archivo .bat: {bat_path.name}")
-    
-    elif opcion == "2":
-        # Crear solo archivo .bat
-        bat_path = create_bat_file(project_dir, project, client)
-        create_desktop_shortcut_bat(bat_path, project)
-        print(f"\n✅ Se creó archivo .bat: {bat_path.name}")
-        print("Ejecútalo haciendo doble clic (requiere Python instalado)")
-    
-    elif opcion == "3":
-        print(f"\n✅ Archivos generados en: {project_dir}")
-        print(f"Para ejecutar manualmente:")
-        print(f"1. Navegar a: {project_dir}")
-        print(f"2. Instalar dependencias: pip install requests")
-        print(f"3. Ejecutar: python RUN_{project}.py")
-    
-    # 8. Mostrar instrucciones finales
-    print("\n" + "="*60)
-    print("INSTRUCCIONES FINALES:")
-    print("="*60)
-    print(f"1. Carpeta del proyecto: {project_dir}")
-    print(f"2. Archivo de instrucciones: README_INSTRUCCIONES.txt")
-    print(f"3. Script principal: RUN_{project}.py")
-    print("\nSi encuentras errores, verifica que tengas instalado:")
-    print("  - Python: https://python.org")
-    print("  - Dependencias: pip install requests")
-    print("="*60)
-    
+        # Mostrar información final
+        if os.path.exists(zip_name):
+            zip_size = os.path.getsize(zip_name) / (1024*1024)
+            print(f"📦 Tamaño del paquete final: {zip_size:.2f} MB")
+            
+    elif success:
+        print("\n" + "="*60)
+        print("✅ PROJECT_DEPLOYER COMPILADO EXITOSAMENTE")
+        print("="*60)
+        print("Archivo ejecutable creado: ProjectDeployer_JhonPiza.exe")
+        print("Nota: El archivo no fue comprimido a ZIP.")
+    else:
+        print("\n" + "="*60)
+        print("❌ La compilación falló. Revisa los mensajes de error.")
+        print("="*60)
+
 if __name__ == "__main__":
     main()
